@@ -1,6 +1,7 @@
 const { PrismaClient } = require("@prisma/client");
 const prisma = new PrismaClient();
 const { kebabCase } = require("lodash");
+const { validationResult } = require('express-validator');
 
 // mostro tutti i post in rotta index 
 async function index(req, res) {
@@ -55,26 +56,43 @@ async function generateUniqueSlug(baseSlug) {
 
 
 async function store(req, res) {
-    try {
-        const insertData = req.body;
-        const baseSlug = kebabCase(insertData.title);
-        const uniqueSlug = await generateUniqueSlug(baseSlug);
-
-        const newPost = await prisma.post.create({
-            data: {
-                title: insertData.title,
-                slug: uniqueSlug,
-                image: insertData.image,
-                content: insertData.content,
-                published: insertData.published,
-            },
-        });
-
-        return res.json(newPost);
-    } catch (error) {
-        console.error("Error during database insertion:", error);
-        res.status(500).json({ error: "Internal server error" });
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
     }
+    const insertData = req.body;
+    const baseSlug = kebabCase(insertData.title);
+    const categotySlug = kebabCase(insertData.name);
+    const uniqueCategorySlug = await generateUniqueSlug(categotySlug);
+    const uniqueSlug = await generateUniqueSlug(baseSlug);
+
+    const newPost = await prisma.post.create({
+        data: {
+            title: insertData.title,
+            slug: uniqueSlug,
+            image: insertData.image,
+            content: insertData.content,
+            published: insertData.published,
+            category: {
+                create: {
+                    name: insertData.name,
+                    slug: uniqueCategorySlug
+                }
+            },
+            tags: {
+                create: {
+                    titleT: insertData.titleT
+                }
+            },
+        },
+        include: {
+            category: true,
+            tags: true
+        },
+    });
+
+    return res.json(newPost);
+
 }
 //mostro un singolo elemento tramite slug  con show
 async function show(req, res) {
@@ -93,6 +111,7 @@ async function show(req, res) {
 
 //funzione per modifica 
 async function update(req, res) {
+
     const dbSlug = req.params.slug;
     const updateData = req.body;
     console.log(dbSlug);

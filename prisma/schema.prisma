@@ -11,14 +11,40 @@ datasource db {
 }
 
 model Post {
+  id         Int       @id @default(autoincrement())
+  title      String    @db.VarChar(50)
+  slug       String    @unique
+  image      String?
+  content    String    @db.Text
+  category   Category? @relation(fields: [categoryId], references: [id])
+  categoryId Int?
+  tags       Tag[]
+  published  Boolean   @default(true)
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  @@map("posts")
+}
+
+//model per categoria one-to-many
+model Category {
   id        Int      @id @default(autoincrement())
-  title     String   @db.VarChar(50)
+  name      String   @db.VarChar(50)
   slug      String   @unique
-  image     String?
-  content   String   @db.Text
-  published Boolean  @default(true)
+  posts     Post[]
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  @@map("posts")
+  @@map("categories")
+}
+
+//model per tag many-to-many
+model Tag {
+  id        Int      @id @default(autoincrement())
+  titleT    String   @db.VarChar(50)
+  posts     Post[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("tags")
 }
