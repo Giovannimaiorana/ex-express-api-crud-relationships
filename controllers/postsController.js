@@ -5,8 +5,14 @@ const { validationResult } = require('express-validator');
 
 // mostro tutti i post in rotta index 
 async function index(req, res) {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+    }
     try {
         const { published, content } = req.query;
+
+
         const filter = {};
         if (published) {
             filter.published = published.toLowerCase() === 'true';
@@ -17,13 +23,20 @@ async function index(req, res) {
                 { content: { contains: content.toLowerCase() } },
             ];
         }
+        console.log('Filter:', filter);
         const posts = await prisma.post.findMany({
             where: filter,
+            include: {
+                tags: true,
+                category: true
+            }
         });
+
         res.json(posts);
     } catch (error) {
         console.error("Errore durante il recupero dei post:", error);
         res.status(500).json({ error: "Errore interno del server" });
+
     }
 }
 
@@ -96,6 +109,10 @@ async function store(req, res) {
 }
 //mostro un singolo elemento tramite slug  con show
 async function show(req, res) {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+    }
     const dbSlug = req.params.slug;
     console.log(dbSlug);
     const data = await prisma.post.findUnique({
@@ -104,14 +121,14 @@ async function show(req, res) {
         }
     });
     if (!data) {
-        return res.status(404).json({ error: "Elemento non trovato" });
+        // Se non viene trovato uno slug corrispondente, restituisci il messaggio personalizzato
+        return res.status(404).json({ error: 'L\'elemento da te cercato non esiste' });
     }
     return res.json(data);
 }
 
 //funzione per modifica 
 async function update(req, res) {
-
     const dbSlug = req.params.slug;
     const updateData = req.body;
     console.log(dbSlug);
@@ -141,14 +158,28 @@ async function update(req, res) {
 //funzione per eliminare
 async function destroy(req, res) {
     const dbSlug = req.params.slug;
+    const errors = validationResult(req);
 
+    if (!errors.isEmpty()) {
+        return res.status(400).json({ errors: errors.array() });
+    }
+
+    console.log("Errori di validazione:", errors.array());
+    const postToDelete = await prisma.post.findUnique({
+        where: {
+            slug: dbSlug,
+        },
+    });
+    if (!postToDelete) {
+        return res.status(404).json({ error: "Il post non esiste" });
+    }
     await prisma.post.delete({
         where: {
             slug: dbSlug,
         },
     });
-    return res.json({ message: "Post eliminato" });
 
+    return res.json({ message: "Post eliminato" });
 }
 
 module.exports = {
